@@ -2,13 +2,21 @@ import React from "react";
 import {
   Chessboard,
   COLOR,
+  MARKER_TYPE,
   MOVE_INPUT_MODE,
   INPUT_EVENT_TYPE
 } from "cm-chessboard";
 import Chess from "chess.js";
 import axios from "axios";
 
+const boardHeight = 400;
+
 class App extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { gameOver: false, history: [] };
+  }
+
   chess = new Chess();
   chessboard = void 0;
   moves = [];
@@ -17,19 +25,19 @@ class App extends React.Component {
     this.chessboard = new Chessboard(
       document.getElementById("chessboard-container"),
       {
-        position: "start", // set as fen, "start" or "empty"
-        orientation: COLOR.white, // white on bottom
+        position: "start",
+        orientation: COLOR.white,
         style: {
           cssClass: "default",
-          showCoordinates: true, // show ranks and files
-          showBorder: false // display a border around the board
+          showCoordinates: true,
+          showBorder: true
         },
-        responsive: false, // resizes the board on window resize, if true
-        animationDuration: 300, // pieces animation duration in milliseconds
-        moveInputMode: MOVE_INPUT_MODE.dragMarker, // set to MOVE_INPUT_MODE.dragPiece or MOVE_INPUT_MODE.dragMarker for interactive movement
+        responsive: false,
+        animationDuration: 300,
+        moveInputMode: MOVE_INPUT_MODE.dragMarker,
         sprite: {
           url: "./chessboard-sprite.svg",
-          grid: 40 // the sprite is tiled with one piece every 40px
+          grid: 40
         }
       }
     );
@@ -51,12 +59,24 @@ class App extends React.Component {
     this.chessboard.enableMoveInput(this.handleMoveInput, COLOR.white);
   }
 
-  getMoves = () =>
-    axios.get("/api/moves").then(response => {
-      console.log(response.data);
+  updateGameState = () => {
+    var history = document.getElementById("history");
 
-      return response.data.moves.split(" ");
+    // Only auto-scroll to the bottom if the list is already at the bottom before adding another move
+    var autoScroll = history.scrollTop === history.scrollHeight - boardHeight;
+
+    this.setState({
+      gameOver: this.chess.game_over(),
+      history: this.chess.history()
     });
+
+    if (autoScroll) {
+      history.scrollTop = history.scrollHeight;
+    }
+  };
+
+  getMoves = () =>
+    axios.get("/api/moves").then(response => response.data.moves.split(" "));
 
   applyMoves = moves => {
     this.chess.reset();
@@ -66,17 +86,28 @@ class App extends React.Component {
     });
 
     this.chessboard.setPosition(this.chess.fen());
+    this.updateGameState();
   };
 
   handleMoveInput = event => {
     switch (event.type) {
       case INPUT_EVENT_TYPE.moveStart:
-        console.log(`moveStart: ${event.square}`);
-        if (this.chess.game_over()) {
+        if (this.chess.game_over() || this.chess.turn() !== "w") {
           return false;
         }
+        var possibleMoves = this.chess.moves({
+          square: event.square,
+          verbose: true
+        });
+
+        possibleMoves.forEach(move => {
+          this.chessboard.addMarker(move.to);
+        });
+
         return true;
       case INPUT_EVENT_TYPE.moveDone:
+        this.chessboard.removeMarkers(null, null);
+
         var moveResult = this.chess.move({
           from: event.squareFrom,
           to: event.squareTo
@@ -86,12 +117,14 @@ class App extends React.Component {
         }
 
         this.moves.push(moveResult.san);
-
         axios.post("/api/moves", { moves: this.moves.join(" ") });
+
+        this.updateGameState();
 
         return true;
       case INPUT_EVENT_TYPE.moveCanceled:
-        console.log(`moveCanceled`);
+        this.chessboard.removeMarkers(null, null);
+        break;
     }
   };
 
@@ -100,9 +133,41 @@ class App extends React.Component {
       return (
         <div className="App">
           <div
-            id="chessboard-container"
-            style={{ height: "400px", width: "400px" }}
-          />
+            style={{
+              float: "left",
+              width: "100px"
+            }}
+          >
+            <h1>ShadFish</h1>
+            <div
+              id="history"
+              style={{
+                height: `${boardHeight}px`,
+                overflow: "hidden",
+                overflowY: "scroll",
+                border: "ridge"
+              }}
+            >
+              {this.state.history.map((move, index) => (
+                <p style={{ marginLeft: "6px" }} key={index}>
+                  {move}
+                </p>
+              ))}
+            </div>
+          </div>
+          <div style={{ float: "left", marginLeft: "20px" }}>
+            {this.state.gameOver && (
+              <h1 style={{ color: "red", float: "right" }}>Game Over!</h1>
+            )}
+            <div
+              id="chessboard-container"
+              style={{
+                height: `${boardHeight}px`,
+                width: `${boardHeight}px`,
+                marginTop: !this.state.gameOver ? "86px" : void 0
+              }}
+            />
+          </div>
         </div>
       );
     } catch (err) {
