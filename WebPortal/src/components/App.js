@@ -2,7 +2,6 @@ import React from "react";
 import {
   Chessboard,
   COLOR,
-  MARKER_TYPE,
   MOVE_INPUT_MODE,
   INPUT_EVENT_TYPE
 } from "cm-chessboard";
