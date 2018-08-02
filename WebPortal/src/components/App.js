@@ -147,6 +147,7 @@ class App extends React.Component {
                 border: "ridge"
               }}
             >
+              <h3 style={{ marginLeft: "5px" }}>History</h3>
               {this.state.history.map((move, index) => (
                 <p style={{ marginLeft: "6px" }} key={index}>
                   {move}
