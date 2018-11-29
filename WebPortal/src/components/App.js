@@ -55,7 +55,7 @@ class App extends React.Component {
       });
     }, 2000);
 
-    this.chessboard.enableMoveInput(this.handleMoveInput, COLOR.white);
+    this.chessboard.enableMoveInput(this.handleMoveInput);
   }
 
   updateGameState = () => {
@@ -91,7 +91,7 @@ class App extends React.Component {
   handleMoveInput = event => {
     switch (event.type) {
       case INPUT_EVENT_TYPE.moveStart:
-        if (this.chess.game_over() || this.chess.turn() !== "w") {
+        if (this.chess.game_over()) {
           return false;
         }
         var possibleMoves = this.chess.moves({
